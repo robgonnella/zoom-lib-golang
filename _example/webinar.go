@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/zoom-lib-golang/zoom-lib-golang"
+	"github.com/robgonnella/zoom-lib-golang"
 )
 
 // ExampleWebinar contains examples for the /webinar endpoints
