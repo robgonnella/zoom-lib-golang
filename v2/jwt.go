@@ -9,13 +9,18 @@ import (
 )
 
 func jwtToken(key string, secret string) (string, error) {
-	claims := &jwt.StandardClaims{
-		Issuer:    key,
-		ExpiresAt: jwt.TimeFunc().Local().Add(time.Second * time.Duration(5000)).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	token.Header["alg"] = "HS256"
-	token.Header["typ"] = "JWT"
+	role := "0"
+	iat := (time.Now().UnixMilli() / 1000) - 30
+	exp := iat + 60*60*2
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sdkKey":   key,
+		"role":     role,
+		"iat":      iat,
+		"appKey":   key,
+		"tokenExp": exp,
+	})
+
 	return token.SignedString([]byte(secret))
 }
 
