@@ -244,9 +244,10 @@ func jwtSDKToken(key string, secret string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sdkKey":   key,
+		"appKey":   key,
 		"role":     role,
 		"iat":      iat,
-		"appKey":   key,
+		"exp":      exp,
 		"tokenExp": exp,
 	})
 	token.Header["alg"] = "HS256"
