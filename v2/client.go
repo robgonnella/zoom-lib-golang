@@ -2,8 +2,10 @@ package zoom
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -37,12 +39,13 @@ type ClientOpt func(cl *Client)
 
 // Client is responsible for making API requests
 type Client struct {
-	Key       string
-	Secret    string
-	Transport http.RoundTripper
-	Timeout   time.Duration // set to value > 0 to enable a request timeout
-	useSDK    bool
-	endpoint  string
+	Key         string
+	Secret      string
+	Transport   http.RoundTripper
+	Timeout     time.Duration // set to value > 0 to enable a request timeout
+	useS2SOAuth bool
+	accountID   string
+	endpoint    string
 }
 
 // NewClient returns a new API client
@@ -66,9 +69,10 @@ func NewClient(apiKey string, apiSecret string, opts ...ClientOpt) *Client {
 	return cl
 }
 
-func WithSDK() ClientOpt {
+func WithUseS2SOAuth(accountID string) ClientOpt {
 	return func(cl *Client) {
-		cl.useSDK = true
+		cl.useS2SOAuth = true
+		cl.accountID = accountID
 	}
 }
 
@@ -100,8 +104,8 @@ func (c *Client) addRequestAuth(req *http.Request) (*http.Request, error) {
 	var ss string
 	var err error
 
-	if c.useSDK {
-		ss, err = jwtSDKToken(c.Key, c.Secret)
+	if c.useS2SOAuth {
+		ss, err = c.jwtS2SToken()
 	} else {
 		ss, err = jwtToken(c.Key, c.Secret)
 	}
@@ -225,6 +229,38 @@ func (c *Client) requestV2HeadOnly(resp *http.Response) error {
 	return nil
 }
 
+func (c *Client) jwtS2SToken() (string, error) {
+	auth := c.Key + ":" + c.Secret
+	b64Auth := base64.StdEncoding.EncodeToString([]byte(auth))
+	basicAuth := fmt.Sprintf("Basic %s", b64Auth)
+
+	url := fmt.Sprintf("https://zoom.us/oauth/token?grant_type=account_credentials&account_id=%s", c.accountID)
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Add("Authorization", basicAuth)
+
+	client := c.httpClient()
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return "", err
+	}
+
+	var body struct {
+		AccessToken string `json:"access_token"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "", err
+	}
+
+	return body.AccessToken, nil
+}
+
 // helpers
 func jwtToken(key string, secret string) (string, error) {
 	claims := &jwt.StandardClaims{
@@ -234,24 +270,5 @@ func jwtToken(key string, secret string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token.Header["alg"] = "HS256"
 	token.Header["typ"] = "JWT"
-	return token.SignedString([]byte(secret))
-}
-
-func jwtSDKToken(key string, secret string) (string, error) {
-	role := "0"
-	iat := (time.Now().UnixMilli() / 1000) - 30
-	exp := iat + 60*60*2
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sdkKey":   key,
-		"appKey":   key,
-		"role":     role,
-		"iat":      iat,
-		"exp":      exp,
-		"tokenExp": exp,
-	})
-	token.Header["alg"] = "HS256"
-	token.Header["typ"] = "JWT"
-
 	return token.SignedString([]byte(secret))
 }
