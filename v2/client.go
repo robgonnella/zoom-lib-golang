@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/go-querystring/query"
 )
 
@@ -32,27 +33,42 @@ var (
 	defaultClient *Client
 )
 
+type ClientOpt func(cl *Client)
+
 // Client is responsible for making API requests
 type Client struct {
 	Key       string
 	Secret    string
 	Transport http.RoundTripper
 	Timeout   time.Duration // set to value > 0 to enable a request timeout
+	useSDK    bool
 	endpoint  string
 }
 
 // NewClient returns a new API client
-func NewClient(apiKey string, apiSecret string) *Client {
+func NewClient(apiKey string, apiSecret string, opts ...ClientOpt) *Client {
 	var uri = url.URL{
 		Scheme: "https",
 		Host:   apiURI,
 		Path:   apiVersion,
 	}
 
-	return &Client{
+	cl := &Client{
 		Key:      apiKey,
 		Secret:   apiSecret,
 		endpoint: uri.String(),
+	}
+
+	for _, o := range opts {
+		o(cl)
+	}
+
+	return cl
+}
+
+func WithSDK() ClientOpt {
+	return func(cl *Client) {
+		cl.useSDK = true
 	}
 }
 
@@ -79,9 +95,40 @@ func initializeDefault(c *Client) *Client {
 	return c
 }
 
+func (c *Client) addRequestAuth(req *http.Request) (*http.Request, error) {
+	// establish JWT token
+	var ss string
+	var err error
+
+	if c.useSDK {
+		ss, err = jwtSDKToken(c.Key, c.Secret)
+	} else {
+		ss, err = jwtToken(c.Key, c.Secret)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if Debug {
+		log.Println("JWT Token: " + ss)
+	}
+
+	// set JWT Authorization header
+	req.Header.Add("Authorization", "Bearer "+ss)
+
+	return req, nil
+}
+
 func (c *Client) executeRequest(opts requestV2Opts) (*http.Response, error) {
 	client := c.httpClient()
-	req, err := c.addRequestAuth(c.httpRequest(opts))
+
+	req, err := c.httpRequest(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err = c.addRequestAuth(req)
 	if err != nil {
 		return nil, err
 	}
@@ -176,4 +223,34 @@ func (c *Client) requestV2HeadOnly(resp *http.Response) error {
 
 	// there were no errors, just return
 	return nil
+}
+
+// helpers
+func jwtToken(key string, secret string) (string, error) {
+	claims := &jwt.StandardClaims{
+		Issuer:    key,
+		ExpiresAt: jwt.TimeFunc().Local().Add(time.Second * time.Duration(5000)).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["alg"] = "HS256"
+	token.Header["typ"] = "JWT"
+	return token.SignedString([]byte(secret))
+}
+
+func jwtSDKToken(key string, secret string) (string, error) {
+	role := "0"
+	iat := (time.Now().UnixMilli() / 1000) - 30
+	exp := iat + 60*60*2
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sdkKey":   key,
+		"role":     role,
+		"iat":      iat,
+		"appKey":   key,
+		"tokenExp": exp,
+	})
+	token.Header["alg"] = "HS256"
+	token.Header["typ"] = "JWT"
+
+	return token.SignedString([]byte(secret))
 }
