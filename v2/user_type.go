@@ -91,6 +91,7 @@ type User struct {
 	LastName                         string   `json:"last_name"`
 	PicURL                           string   `json:"pic_url"`
 	Type                             UserType `json:"type"`
+	RoleID                           string   `json:"role_id"`
 	DisableChat                      bool     `json:"disable_chat"`
 	EnableE2eEncryption              bool     `json:"enable_e2e_encryption"`
 	EnableSilentMode                 bool     `json:"enable_silent_mode"`
