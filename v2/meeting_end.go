@@ -27,5 +27,6 @@ func (c *Client) EndMeeting(opts EndMeetingOptions) error {
 		DataParameters: &MeetingStatusUpdate{
 			Action: "end",
 		},
+		HeadResponse: true,
 	})
 }
