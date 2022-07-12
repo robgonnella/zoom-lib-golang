@@ -18,7 +18,7 @@ type UpdateMeetingOptions struct {
 }
 
 // UpdateMeetingPath - v2 update a meeting
-const UpdateMeetingPath = "/meetings/%s"
+const UpdateMeetingPath = "/meetings/%d"
 
 // UpdateMeeting calls PATCH /meetings/{meetingId}
 func UpdateMeeting(opts UpdateMeetingOptions) (Meeting, error) {
