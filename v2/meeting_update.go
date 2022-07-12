@@ -4,7 +4,7 @@ import "fmt"
 
 // UpdateMeetingOptions are the options to update a meeting with
 type UpdateMeetingOptions struct {
-	ID             string          `json:"-"`
+	ID             int             `json:"-"`
 	HostID         string          `json:"-"`
 	Topic          string          `json:"topic,omitempty"`
 	Type           MeetingType     `json:"type,omitempty"`
