@@ -7,6 +7,7 @@ type EndMeetingOptions struct {
 	MeetingID int `url:"-"`
 }
 
+// MeetingStatusUpdate data parameters for meeting status updates
 type MeetingStatusUpdate struct {
 	Action string `json:"action"`
 }
@@ -19,7 +20,7 @@ func EndMeeting(opts EndMeetingOptions) error {
 	return defaultClient.EndMeeting(opts)
 }
 
-// DeleteMeeting calls PUT /meetings/{meetingID}/status
+// EndMeeting calls PUT /meetings/{meetingID}/status
 func (c *Client) EndMeeting(opts EndMeetingOptions) error {
 	return c.requestV2(requestV2Opts{
 		Method: Put,
