@@ -230,9 +230,6 @@ func (c *Client) requestV2HeadOnly(resp *http.Response) error {
 }
 
 func (c *Client) jwtS2SToken() (string, error) {
-	// hack to prevent creating tokens to fast in multiple calls
-	time.Sleep(time.Second)
-
 	auth := c.Key + ":" + c.Secret
 	b64Auth := base64.StdEncoding.EncodeToString([]byte(auth))
 	basicAuth := fmt.Sprintf("Basic %s", b64Auth)
